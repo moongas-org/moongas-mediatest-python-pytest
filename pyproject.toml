@@ -1,0 +1,121 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mediatest"
+version = "1.2.1"
+requires-python = ">=3.11"
+authors = [{ name = "moongas.org", email = "moongas.org@gmail.com" }]
+maintainers = [{ name = "moongas.org", email = "moongas.org@gmail.com" }]
+description = "A Python project for testing your media library with pytest"
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+keywords = [
+  "moongas", 
+  "mediascan", 
+  "music",
+  "metadata",
+  "database",
+  "python",
+  "audio",
+  "media",
+  "tagging",
+  "file management",
+  "file organization"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  'Intended Audience :: End Users/Desktop',
+  'Intended Audience :: Education',
+  'Intended Audience :: Science/Research',
+  'Topic :: Utilities',
+  'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+  "dataclass-wizard[yaml]>0.39.1", 
+  "mediascan>=1.2.1",
+  "pytest>=9.1.1", 
+  "pytest-progress>=1.4.0", 
+  "pyaml>=26.7.0", 
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.1.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/moongas-org/moongas-py-mediatest"
+Documentation = "https://github.com/moongas-org/moongas-py-mediatest"
+Repository = "https://github.com/moongas-org/moongas-py-mediatest.git"
+"Bug Tracker" = "https://github.com/moongas-org/moongas-py-mediatest/issues"
+Changelog = "https://github.com/moongas-org/moongas-py-mediatest/blob/master/CHANGELOG.md"
+
+[tool.setuptools.package-data]
+mediatest = [ 'py.typed']
+
+[tool.setuptools.data-files]
+"." = ["mediatest-config.yml"]
+
+[tool.setuptools.packages.find]
+where = ["src", "."]
+#include = ["mediascan*", "scripts"]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
+testpaths = [
+  "tests"
+]
+norecursedirs = [
+  ".env*",
+  ".git",
+  ".tox",
+  "build",
+  "dist",
+  "env*",
+  "venv*",
+  "docs",
+  "__pycache__",
+  "scripts",
+  "out"
+]
+addopts = [
+  "--ignore=.git",
+  "--ignore=.tox",
+  "--ignore=build",
+  "--ignore=dist",
+  "--ignore=__pycache__",
+  "--ignore=scripts",
+  "--ignore=out",
+  "--ignore=tests/mediatests/"
+]
+
+[tool.ruff]
+# Set the maximum line length to match your GitHub Actions setup
+line-length = 127
+
+[tool.ruff.lint]
+# Enable Flake8 syntax/error equivalents (E9, F63, F7, F82)
+# "E" and "F" enable pycodestyle errors and Pyflakes
+select = ["E9", "F63", "F7", "F82"]
+
+# Enable McCabe complexity checking (equivalent to flake8 --max-complexity=10)
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+mypy_path = "typings"
+
+[[tool.mypy.overrides]]
+module = "*.pyi"
+ignore_errors = true
