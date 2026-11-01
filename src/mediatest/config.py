@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class MediaTestConfig(YAMLWizard):
     minimum_filesize: int
-    mediascan_files_yaml_path: Optional[str] = None
     mediatest_rootdir: Optional[str] = None
     log_throttle_seconds: Optional[float] = None
 
@@ -23,7 +22,7 @@ class RuntimeConfig:
     media_test_config: MediaTestConfig
     media_rootdir: str
     mediatest_rootdir: str
-    mediascan_files_yaml_path: str | None
+    mediascan_db_path: str
     exts_media: tuple[str, ...]
     exts_art: tuple[str, ...]
     exts_lyrics: tuple[str, ...]
@@ -100,15 +99,9 @@ def configure(collection_rootdir: Path) -> RuntimeConfig:
             mediatest_rootdir = collection_rootdir / mediatest_rootdir
         resolved_mediatest_rootdir = str(mediatest_rootdir.resolve())
     else:
-        resolved_mediatest_rootdir = str(collection_rootdir)
-
-    if media_test_config.mediascan_files_yaml_path is None:
-        mediascan_files_yaml_path = None
-    else:
-        mediascan_files_path = Path(media_test_config.mediascan_files_yaml_path).expanduser()
-        if not mediascan_files_path.is_absolute():
-            mediascan_files_path = collection_rootdir / mediascan_files_path
-        mediascan_files_yaml_path = str(mediascan_files_path.resolve())
+        resolved_mediatest_rootdir = str(
+            collection_rootdir / "moongas-mediatest-python-pytest"
+        )
 
     exts_media = tuple(
         extension.lstrip(".") for extension in mediascan_config.media_exts
@@ -135,7 +128,7 @@ def configure(collection_rootdir: Path) -> RuntimeConfig:
         media_test_config=media_test_config,
         media_rootdir=media_rootdir,
         mediatest_rootdir=resolved_mediatest_rootdir,
-        mediascan_files_yaml_path=mediascan_files_yaml_path,
+        mediascan_db_path=str(collection_rootdir / "mediascan.db"),
         exts_media=exts_media,
         exts_art=exts_art,
         exts_lyrics=exts_lyrics,
@@ -151,11 +144,11 @@ def configure(collection_rootdir: Path) -> RuntimeConfig:
 
     logger.info(
         "Configured %d media directories from %s; mediatest_rootdir=%s "
-        "mediascan_files_yaml_path=%s minimum_filesize=%s",
+        "mediascan_db_path=%s minimum_filesize=%s",
         runtime_config.lib_count,
         mediascan_config_path,
         runtime_config.mediatest_rootdir,
-        runtime_config.mediascan_files_yaml_path,
+        runtime_config.mediascan_db_path,
         runtime_config.minimum_filesize,
     )
     logger.debug(

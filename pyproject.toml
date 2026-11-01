@@ -40,6 +40,8 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
+  "SQLAlchemy>=2.0",
+  "pandas>=2.0",
   "dataclass-wizard[yaml]>0.39.1", 
   "mediascan>=1.2.7",
   "pytest>=9.1.1", 

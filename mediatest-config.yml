@@ -1,5 +1,4 @@
 # Throttle live pytest log output to at most one message per this many seconds
 # (warnings and errors are never throttled). Omit or set to 0 to disable.
 logThrottleSeconds: 1.0
-mediascanFilesYamlPath: mediascan-files.yml
 minimumFilesize: 10000

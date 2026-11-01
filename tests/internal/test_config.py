@@ -12,7 +12,6 @@ from mediatest.config import MediaTestConfigUtil
 def write_collection_configs(collection_rootdir: Path) -> None:
     (collection_rootdir / "mediatest-config.yml").write_text(
         "minimumFilesize: 123\n"
-        "mediascanFilesYamlPath: scan-files.yml\n"
         "logThrottleSeconds: 0.5\n",
         encoding="utf-8",
     )
@@ -33,7 +32,9 @@ def test_main_uses_live_config_state_after_configure(tmp_path: Path):
     write_collection_configs(tmp_path)
     runtime_config = config_module.configure(tmp_path)
 
-    assert runtime_config.mediatest_rootdir == str(tmp_path.resolve())
+    assert runtime_config.mediatest_rootdir == str(
+        tmp_path / "moongas-mediatest-python-pytest"
+    )
     assert main_module.config.get_config() is runtime_config
     assert runtime_config.libs_media_path == (
         str((tmp_path / "Music").resolve()),
@@ -56,8 +57,8 @@ def test_main_uses_live_config_state_after_configure(tmp_path: Path):
         "yml",
         "pdf",
     )
-    assert runtime_config.mediascan_files_yaml_path == str(
-        (tmp_path / "scan-files.yml").resolve()
+    assert runtime_config.mediascan_db_path == str(
+        (tmp_path / "mediascan.db").resolve()
     )
     assert runtime_config.minimum_filesize == 123
     assert runtime_config.log_throttle_seconds == 0.5
@@ -75,15 +76,35 @@ def test_config_is_immutable(tmp_path: Path):
         runtime_config.exts_media[0] = "flac"  # type: ignore[index]
 
 
-def test_main_uses_collection_rootdir_environment_variable(
+@pytest.mark.parametrize("use_environment", [True, False])
+@pytest.mark.parametrize("root_setting", [None, "custom-mediatest", "absolute"])
+def test_main_resolves_mediatest_rootdir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    use_environment: bool,
+    root_setting: str | None,
 ):
     import mediatest.main as main_module
 
     write_collection_configs(tmp_path)
-    monkeypatch.setattr("sys.argv", ["mediatest"])
-    monkeypatch.setenv("MOONGAS_COLLECTION_ROOTDIR", str(tmp_path))
+    expected_root = tmp_path / "moongas-mediatest-python-pytest"
+    if root_setting is not None:
+        configured_root = (
+            str(tmp_path / "absolute-mediatest")
+            if root_setting == "absolute"
+            else root_setting
+        )
+        with (tmp_path / "mediatest-config.yml").open(
+            "a", encoding="utf-8"
+        ) as config_file:
+            config_file.write(f"mediatestRootdir: {configured_root}\n")
+        expected_root = (tmp_path / configured_root).resolve()
+    if use_environment:
+        monkeypatch.setattr("sys.argv", ["mediatest"])
+        monkeypatch.setenv("MOONGAS_COLLECTION_ROOTDIR", str(tmp_path))
+    else:
+        monkeypatch.setattr("sys.argv", ["mediatest", str(tmp_path)])
+        monkeypatch.delenv("MOONGAS_COLLECTION_ROOTDIR", raising=False)
     pytest_args: list[str] = []
 
     def fake_pytest_main(args: list[str], plugins: list[object]) -> pytest.ExitCode:
@@ -96,9 +117,9 @@ def test_main_uses_collection_rootdir_environment_variable(
         main_module.main()
 
     assert exit_info.value.code == 0
-    assert pytest_args[0] == str(tmp_path / "tests" / "mediatests")
+    assert pytest_args[0] == str(expected_root / "tests" / "mediatests")
     rootdir_option = pytest_args.index("--rootdir")
-    assert pytest_args[rootdir_option + 1] == str(tmp_path.resolve())
+    assert pytest_args[rootdir_option + 1] == str(expected_root)
 
 
 def test_main_requires_collection_rootdir_without_environment(

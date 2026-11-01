@@ -332,17 +332,10 @@ def main() -> int:
 
     media_rootdir = Path(runtime_config.media_rootdir)
 
-    if runtime_config.mediatest_rootdir:
-        mediatest_rootdir = Path(runtime_config.mediatest_rootdir)
-        logger.debug(
-            "Resolved mediatest_rootdir from config path: %s", mediatest_rootdir
-        )
-    else:
-        mediatest_rootdir = collection_rootdir
-        logger.debug(
-            "No mediatest root configured, defaulting to collection root: %s",
-            mediatest_rootdir,
-        )
+    mediatest_rootdir = Path(runtime_config.mediatest_rootdir)
+    logger.debug(
+        "Resolved mediatest_rootdir from config path: %s", mediatest_rootdir
+    )
 
     logger.debug("media_rootdir exists = %s", media_rootdir.exists())
     logger.debug("media_rootdir is_dir = %s", media_rootdir.is_dir())

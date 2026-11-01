@@ -52,6 +52,13 @@ root directory. Run `mediatest` with that directory, or set
 python -m mediatest /path/to/moongas-collection
 ```
 
+The project is expected at `moongas-mediatest-python-pytest` inside the collection
+root. By default, mediatest runs tests from
+`<collection-root>/moongas-mediatest-python-pytest/tests/mediatests` and uses
+that project directory as pytest's root. Set `mediatestRootdir` in
+`mediatest-config.yml` to override the project directory with an absolute path
+or a path relative to the collection root.
+
 Only test artist.yml:
 
 ```bash
@@ -60,8 +67,23 @@ python -m mediatest /path/to/moongas-collection -k test_media_artist_dirs
 
 `mediascan-config.yml` supplies `mediaDirs` and `mediaExts`. The
 `mediatest-config.yml` file configures mediatest-specific settings such as
-`minimumFilesize` and `mediascanFilesYamlPath`. Relative paths are resolved
-against the collection root.
+`minimumFilesize`. Relative paths are resolved against the collection root.
+
+Database-backed metadata tests read `mediascan.db` from the collection root using
+the mediascan package's `get_df_mediafile_track_album_artist_joined` loader and
+`MediaFileDataWithAlbumAndArtistData` row converter. Each item represents a
+local `mediafile`, enriched with related track, album, and artist data.
+The deprecated `mediascan-files.yml` and `mediascanFilesYamlPath` setting are no
+longer used. Streaming-only tracks are not part of this media-file suite.
+File-size checks use the media files on disk. Missing or invalid databases
+produce errors rather than silently skipping validation.
+
+For track-level consumers, `mediatest.media_database.load_database_tracks(db_path)`
+uses `get_df_track_album_artist_joined` and
+`row_to_track_data_with_album_and_artist_data` to return a list of
+`TrackDataWithAlbumAndArtistData`, including streaming-only tracks. Like the
+media-file loader, it opens the database read-only and resolves relative track
+paths against the database directory, leaving absolute paths unchanged.
 
 ## Help
 
@@ -114,7 +136,7 @@ python -m pytest -vv -s --log-cli-level=DEBUG --ignore tests/media
 FAILED tests/test_media_artist_dirs.py::test_artist_yaml_exists[artist_path2151] - AssertionError: assert False
  +  where False = exists()
  +    where exists = PosixPath('/data/Music/Various Artists/artist.yml').exists
-FAILED tests/test_media_files_yaml.py::test_mediafile_albumartist_matches_artist_directory_name - AssertionError: File (path=/data/Music/Crosby, Stills and Nash/Crosby, Stills and Nash - Crosby, Stills and Nash [1969]/01.01 - Suite_ Judy Blue Eyes.mp3) albumartist 'Crosby, Stills & Nash' (escaped=Crosby, Stills & Nash)  does not match artist directory name 'Crosby, Stills and Nash'
+FAILED tests/mediatests/test_media_database.py::test_mediafile_albumartist_matches_artist_directory_name - AssertionError: File (path=/data/Music/Crosby, Stills and Nash/Crosby, Stills and Nash - Crosby, Stills and Nash [1969]/01.01 - Suite_ Judy Blue Eyes.mp3) albumartist 'Crosby, Stills & Nash' (escaped=Crosby, Stills & Nash)  does not match artist directory name 'Crosby, Stills and Nash'
 assert 'David Crosby & Stephen Stills' == 'Crosby, Stills & Nash'
   
   - Crosby, Stills & Nash
@@ -125,10 +147,10 @@ assert 'David Crosby & Stephen Stills' == 'Crosby, Stills & Nash'
 
 ## Advanced Usage
 
-Only run filesystem tests (and not the slower files yaml tests):
+Only run filesystem tests (and not the database-backed metadata tests):
 
 ```bash
-pytest -k filesystem
+python -m mediatest /path/to/moongas-collection --ignore tests/mediatests/test_media_database.py
 ```
 
 ## Developer Usage
