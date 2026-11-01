@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from mediascan.artist.artist_yaml_file_validator import validate_artist_yaml_file
+from mediascan.artist_yaml_file_validator import validate_artist_yaml_file
 from mediatest.config import get_config
 from mediatest.path_utils import get_path_depth, is_dir_with_subdirs
 
