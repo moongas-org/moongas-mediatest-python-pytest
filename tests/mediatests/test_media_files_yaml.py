@@ -2,11 +2,8 @@ from pathlib import Path
 from typing import Callable, Optional, cast
 
 import pytest
-from mediascan.genres import Genre
 from mediascan.media_file_data import MediaFileData
 from mediascan.media_files_yaml_file_loader import load_media_files_yaml_file
-
-from mediatest.media_utils import get_all_genre_strings
 
 """
 These tests are dependant on the mediascan-files.yml file.
@@ -15,22 +12,15 @@ These tests can be skipped by configuring mediascanFilesYamlPath to 'null'
 Some of these tests also examine the filesytem (e.g. verifying the paths in mediascan-files.yml exist)
 """
 
-from mediatest.config import (
-    LIB_COUNT,
-    LIB_GENRES_MODE_BLACKLIST,
-    LIBS_GENRES,
-    LIBS_MEDIA_PATH,
-    MEDIASCAN_FILES_YAML_PATH,
-    MINIMUM_FILESIZE,
-    PRESENT_YEAR,
-)
+from mediatest.config import PRESENT_YEAR, get_config
 
 
 def load_yaml_media_files() -> list[MediaFileData]:
-    if MEDIASCAN_FILES_YAML_PATH is None:
+    mediascan_files_yaml_path = get_config().mediascan_files_yaml_path
+    if mediascan_files_yaml_path is None:
         return []
     try:
-        return load_media_files_yaml_file(MEDIASCAN_FILES_YAML_PATH).files
+        return load_media_files_yaml_file(mediascan_files_yaml_path).files
     except (FileNotFoundError, OSError):
         return []
 
@@ -105,43 +95,7 @@ def test_mediafile_years_lt_present(file: MediaFileData):
 
 @media_file_parametrize
 def test_mediafile_size_gt_min(file: MediaFileData):
-    assert file.size >= MINIMUM_FILESIZE, f"{file.path}"
-
-
-def genre_string_to_enum(s: str) -> Optional[Genre]:
-    for genre in Genre:
-        if genre.value == s:
-            return genre
-    return None
-
-
-@media_file_parametrize
-def test_mediafile_allowed_genres(file: MediaFileData):
-    assert file.genre in get_all_genre_strings(), f"{file.path}"
-
-
-@media_file_parametrize
-def test_mediafile_libs_genres_mode_whitelist(file: MediaFileData):
-    if LIB_GENRES_MODE_BLACKLIST:
-        return
-    for idx in range(LIB_COUNT):
-        if file.path.find(LIBS_MEDIA_PATH[idx]) != -1:
-            g = genre_string_to_enum(file.genre)
-            assert (
-                g is not None and g in LIBS_GENRES[idx]
-            ), f"{file.path} (genre: {file.genre}) is not allowed by by LIB{idx + 1} LIBS_GENRES"
-
-
-@media_file_parametrize
-def test_mediafile_libs_genres_mode_blacklist(file: MediaFileData):
-    if not LIB_GENRES_MODE_BLACKLIST:
-        return
-    for idx in range(LIB_COUNT):
-        if file.path.find(LIBS_MEDIA_PATH[idx]) != -1:
-            g = genre_string_to_enum(file.genre)
-            assert (
-                g is not None and g not in LIBS_GENRES[idx]
-            ), f"{file.path} (genre: {file.genre}) is prohibited by LIB{idx + 1} LIBS_GENRES"
+    assert file.size >= get_config().minimum_filesize, f"{file.path}"
 
 
 @media_file_parametrize

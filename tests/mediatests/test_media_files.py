@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from mediatest.config import ALLOWED_EXTS, LIB_COUNT, LIBS_MEDIA_PATH
+from mediatest.config import get_config
 from mediatest.path_utils import get_file_ext
 
 """
@@ -32,9 +32,10 @@ def get_media_file_paths(media_lib_path: Path) -> list[Path]:
 
 
 def pytest_generate_tests(metafunc):  # type: ignore
+    runtime_config = get_config()
     media_file_paths: list[Path] = []
-    for lib_idx in range(LIB_COUNT):
-        media_lib_path = Path(LIBS_MEDIA_PATH[lib_idx])
+    for lib_idx in range(runtime_config.lib_count):
+        media_lib_path = Path(runtime_config.libs_media_path[lib_idx])
         media_file_paths.extend(get_media_file_paths(media_lib_path))
     metafunc.parametrize("media_file_path", media_file_paths)  # type: ignore
 
@@ -48,4 +49,4 @@ def test_media_file_filename(media_file_path: Path):
 def test_media_file_file_ext(media_file_path: Path):
     """Verifies that media file file extension is in allowed_exts list"""
     ext = get_file_ext(media_file_path)
-    assert ext in ALLOWED_EXTS, f"'{ext}' not in allowed extensions"
+    assert ext in get_config().allowed_exts, f"'{ext}' not in allowed extensions"

@@ -1,5 +1,6 @@
 import logging
 import shutil
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
@@ -8,14 +9,110 @@ from mediatest import config as config_module
 from mediatest.config import MediaTestConfigUtil
 
 
-def test_main_uses_live_config_state_after_configure():
+def write_collection_configs(collection_rootdir: Path) -> None:
+    (collection_rootdir / "mediatest-config.yml").write_text(
+        "minimumFilesize: 123\n"
+        "mediascanFilesYamlPath: scan-files.yml\n"
+        "logThrottleSeconds: 0.5\n",
+        encoding="utf-8",
+    )
+    (collection_rootdir / "mediascan-config.yml").write_text(
+        "mediaDirs:\n"
+        "  - Music\n"
+        "  - /absolute/MusicOther\n"
+        "mediaExts:\n"
+        "  - .mp3\n"
+        "  - .m4a\n",
+        encoding="utf-8",
+    )
+
+
+def test_main_uses_live_config_state_after_configure(tmp_path: Path):
     import mediatest.main as main_module
 
-    source_config_path = Path(__file__).resolve().parents[2] / "mediatest-config.yml"
-    config_module.configure(source_config_path)
+    write_collection_configs(tmp_path)
+    runtime_config = config_module.configure(tmp_path)
 
-    assert main_module.config.MEDIATEST_ROOTDIR == config_module.CONFIG.mediatest_rootdir
-    assert main_module.config.MEDIATEST_ROOTDIR == config_module.MEDIATEST_ROOTDIR
+    assert runtime_config.mediatest_rootdir == str(tmp_path.resolve())
+    assert main_module.config.get_config() is runtime_config
+    assert runtime_config.libs_media_path == (
+        str((tmp_path / "Music").resolve()),
+        str(Path("/absolute/MusicOther")),
+    )
+    assert runtime_config.exts_media == ("mp3", "m4a")
+    assert runtime_config.exts_art == ("jpg", "webp", "png", "xcf")
+    assert runtime_config.exts_lyrics == ("lrc", "txt")
+    assert runtime_config.exts_metadata == ("yml",)
+    assert runtime_config.exts_extra == ("pdf",)
+    assert runtime_config.allowed_exts == (
+        "mp3",
+        "m4a",
+        "jpg",
+        "webp",
+        "png",
+        "xcf",
+        "lrc",
+        "txt",
+        "yml",
+        "pdf",
+    )
+    assert runtime_config.mediascan_files_yaml_path == str(
+        (tmp_path / "scan-files.yml").resolve()
+    )
+    assert runtime_config.minimum_filesize == 123
+    assert runtime_config.log_throttle_seconds == 0.5
+
+
+def test_config_is_immutable(tmp_path: Path):
+    write_collection_configs(tmp_path)
+    runtime_config = config_module.configure(tmp_path)
+
+    with pytest.raises(FrozenInstanceError):
+        setattr(runtime_config, "minimum_filesize", 456)
+    with pytest.raises(FrozenInstanceError):
+        setattr(runtime_config.media_test_config, "minimum_filesize", 456)
+    with pytest.raises(TypeError):
+        runtime_config.exts_media[0] = "flac"  # type: ignore[index]
+
+
+def test_main_uses_collection_rootdir_environment_variable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import mediatest.main as main_module
+
+    write_collection_configs(tmp_path)
+    monkeypatch.setattr("sys.argv", ["mediatest"])
+    monkeypatch.setenv("MOONGAS_COLLECTION_ROOTDIR", str(tmp_path))
+    pytest_args: list[str] = []
+
+    def fake_pytest_main(args: list[str], plugins: list[object]) -> pytest.ExitCode:
+        pytest_args.extend(args)
+        return pytest.ExitCode.OK
+
+    monkeypatch.setattr(main_module.pytest, "main", fake_pytest_main)
+
+    with pytest.raises(SystemExit) as exit_info:
+        main_module.main()
+
+    assert exit_info.value.code == 0
+    assert pytest_args[0] == str(tmp_path / "tests" / "mediatests")
+    rootdir_option = pytest_args.index("--rootdir")
+    assert pytest_args[rootdir_option + 1] == str(tmp_path.resolve())
+
+
+def test_main_requires_collection_rootdir_without_environment(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    import mediatest.main as main_module
+
+    monkeypatch.setattr("sys.argv", ["mediatest"])
+    monkeypatch.delenv("MOONGAS_COLLECTION_ROOTDIR", raising=False)
+
+    with pytest.raises(SystemExit) as exit_info:
+        main_module.main()
+
+    assert exit_info.value.code == 2
 
 
 def test_load_config_logs_config_source(caplog: pytest.LogCaptureFixture, tmp_path: Path):
@@ -29,8 +126,8 @@ def test_load_config_logs_config_source(caplog: pytest.LogCaptureFixture, tmp_pa
     config = MediaTestConfigUtil().load_config(config_path)
 
     assert config is not None
-    assert "Attempting to load config from" in caplog.text
-    assert "Loaded config from" in caplog.text
+    assert "Attempting to load mediatest config from" in caplog.text
+    assert "Loaded mediatest config from" in caplog.text
 
 
 def test_load_config_from_path(tmp_path: Path):
@@ -42,8 +139,4 @@ def test_load_config_from_path(tmp_path: Path):
 
     config = MediaTestConfigUtil().load_config(config_path)
 
-    assert len(config.libs) == 2
-    assert config.libs[0].media_path == "/data/Music/"
-    assert config.libs[0].expected_media_count == 21666
-    assert config.libs[1].media_path == "/data/MusicOther/"
-    assert config.libs[1].expected_media_count == 0
+    assert config.minimum_filesize == 10000

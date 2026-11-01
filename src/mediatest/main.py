@@ -1,11 +1,14 @@
 import argparse
+from collections.abc import Callable, Generator
 import hashlib
 from importlib.metadata import version
 import logging
+import os
 import platform
 import sys
 import time
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -104,33 +107,52 @@ class _OutputThrottlePlugin:
             return
         plugin = self
 
-        original_write_sep = cls.write_sep
+        original_write_sep = cast(Callable[..., None], getattr(cls, "write_sep"))
 
-        def throttled_write_sep(self, sep, title=None, **kwargs):
+        def throttled_write_sep(
+            self: object,
+            sep: str,
+            title: str | None = None,
+            **kwargs: object,
+        ) -> None:
             if plugin._suppress_sep and sep == "_":
                 return
             return original_write_sep(self, sep, title, **kwargs)
 
-        cls.write_sep = throttled_write_sep
+        setattr(cls, "write_sep", throttled_write_sep)
 
-        original_write_fspath_result = cls.write_fspath_result
+        original_write_fspath_result = cast(
+            Callable[..., None], getattr(cls, "write_fspath_result")
+        )
 
-        def throttled_write_fspath_result(self, nodeid, res, **markup):
+        def throttled_write_fspath_result(
+            self: object,
+            nodeid: str,
+            res: str,
+            **markup: object,
+        ) -> None:
             if plugin._suppress_sep and res in ("", ".", "PASSED"):
                 return
             return original_write_fspath_result(self, nodeid, res, **markup)
 
-        cls.write_fspath_result = throttled_write_fspath_result
+        setattr(cls, "write_fspath_result", throttled_write_fspath_result)
 
         if hasattr(cls, "write_ensure_prefix"):
-            original_write_ensure_prefix = cls.write_ensure_prefix
+            original_write_ensure_prefix = cast(
+                Callable[..., None], getattr(cls, "write_ensure_prefix")
+            )
 
-            def throttled_write_ensure_prefix(self, prefix, extra="", **kwargs):
+            def throttled_write_ensure_prefix(
+                self: object,
+                prefix: str,
+                extra: str = "",
+                **kwargs: object,
+            ) -> None:
                 if plugin._suppress_sep and extra in ("", "PASSED"):
                     return
                 return original_write_ensure_prefix(self, prefix, extra, **kwargs)
 
-            cls.write_ensure_prefix = throttled_write_ensure_prefix
+            setattr(cls, "write_ensure_prefix", throttled_write_ensure_prefix)
 
         self._patched_class = cls
 
@@ -150,8 +172,11 @@ class _OutputThrottlePlugin:
             self._suppress_sep = False
 
     @pytest.hookimpl(wrapper=True, tryfirst=True)
-    def pytest_report_teststatus(self, report: pytest.TestReport):
+    def pytest_report_teststatus(
+        self, report: pytest.TestReport
+    ) -> Generator[None, tuple[str, str, str], tuple[str, str, str]]:
         """Suppress the per-test letter for fast passing tests."""
+        _ = report
         category, letter, word = yield
         if category == "passed" and self._suppress_sep:
             return category, "", ""
@@ -160,12 +185,14 @@ class _OutputThrottlePlugin:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run mediatest media tests using the provided config YAML file",
+        description="Run mediatest media tests for a Moongas collection",
     )
     parser.add_argument(
-        "config_path",
+        "collection_rootdir",
+        nargs="?",
         type=Path,
-        help="Path to the mediatest config YAML file.",
+        default=os.environ.get("MOONGAS_COLLECTION_ROOTDIR") or None,
+        help="Moongas collection root directory (default: $MOONGAS_COLLECTION_ROOTDIR).",
     )
     parser.add_argument(
         "--version",
@@ -263,32 +290,35 @@ def main() -> int:
     logger.debug("sys.argv before parsing: %s", sys.argv)
     logger.debug("argparse parsed args: %s", args)
 
-    config_path = args.config_path
-    logger.info("Received CLI config path: %s", config_path)
-    logger.debug("config_path raw value: %r", config_path)
+    if args.collection_rootdir is None:
+        parser.error(
+            "collection_rootdir is required unless MOONGAS_COLLECTION_ROOTDIR is set"
+        )
+
+    collection_rootdir = args.collection_rootdir.expanduser().resolve()
+    logger.info("Received collection root directory: %s", collection_rootdir)
+    logger.debug("collection_rootdir raw value: %r", args.collection_rootdir)
     logger.debug(
-        "config_path absolute form before exists check: %s", config_path.absolute()
-    )
-    logger.debug(
-        "config_path resolved form before exists check: %s", config_path.resolve()
+        "collection_rootdir resolved form: %s", collection_rootdir
     )
 
-    logger.debug("Checking whether config file exists at %s", config_path)
-    logger.debug("os.path.exists(%s) = %s", config_path, config_path.exists())
-    logger.debug("is_file(%s) = %s", config_path, config_path.is_file())
+    if not collection_rootdir.is_dir():
+        parser.error(f"Collection root directory does not exist: {collection_rootdir}")
 
-    if not config_path.exists():
-        logger.error("Config file missing: %s", config_path)
-        parser.error(f"Config file does not exist: {config_path}")
+    mediatest_config_path = collection_rootdir / "mediatest-config.yml"
+    mediascan_config_path = collection_rootdir / "mediascan-config.yml"
+    for config_path in (mediatest_config_path, mediascan_config_path):
+        if not config_path.is_file():
+            parser.error(f"Config file does not exist or is not a file: {config_path}")
 
-    if not config_path.is_file():
-        logger.error("Config path is not a file: %s", config_path)
-        parser.error(f"Config path is not a file: {config_path}")
+    hash = file_hash_sha256(mediatest_config_path).hexdigest()
+    logger.info(
+        'Loading mediatest config from "%s" sha256:%s content:',
+        mediatest_config_path,
+        hash,
+    )
 
-    hash = file_hash_sha256(config_path).hexdigest()
-    logger.info(f'Loading config from "{config_path}" sha256:{hash} content:')
-
-    with open(config_path, "r") as file:
+    with mediatest_config_path.open("r", encoding="utf-8") as file:
         content = file.read()
         logger.info(
             "\n---BEGIN_MEDIATEST_CONFIGURATION---\n"
@@ -296,29 +326,21 @@ def main() -> int:
             + "\n---END_MEDIATEST_CONFIGURATION---\n"
         )
 
-    logger.debug("Calling configure(%s)", config_path)
-    config.configure(config_path)
-    logger.info("configure(%s) completed successfully", config_path)
+    logger.debug("Calling configure(%s)", collection_rootdir)
+    runtime_config = config.configure(collection_rootdir)
+    logger.info("configure(%s) completed successfully", collection_rootdir)
 
-    if config.MEDIA_ROOTDIR:
-        media_rootdir = Path(config.MEDIA_ROOTDIR)
-        logger.debug("Resolved media_rootdir from config path: %s", media_rootdir)
-    else:
-        media_rootdir = config_path.resolve().parent
-        logger.debug(
-            "No config path provided for media_rootdir, defaulting to: %s",
-            media_rootdir,
-        )
+    media_rootdir = Path(runtime_config.media_rootdir)
 
-    if config.MEDIATEST_ROOTDIR:
-        mediatest_rootdir = Path(config.MEDIATEST_ROOTDIR)
+    if runtime_config.mediatest_rootdir:
+        mediatest_rootdir = Path(runtime_config.mediatest_rootdir)
         logger.debug(
             "Resolved mediatest_rootdir from config path: %s", mediatest_rootdir
         )
     else:
-        mediatest_rootdir = config_path.resolve().parent
+        mediatest_rootdir = collection_rootdir
         logger.debug(
-            "No config path provided for mediatest_rootdir, defaulting to: %s",
+            "No mediatest root configured, defaulting to collection root: %s",
             mediatest_rootdir,
         )
 
@@ -374,12 +396,15 @@ def main() -> int:
         pytest_args.append(f"--durations-min={args.durations_min}")
     pytest_args.extend(additional_pytest_args)
     plugins: list[object] = []
-    if config.LOG_THROTTLE_SECONDS is not None and config.LOG_THROTTLE_SECONDS > 0:
+    if (
+        runtime_config.log_throttle_seconds is not None
+        and runtime_config.log_throttle_seconds > 0
+    ):
         logger.info(
             "Throttling live pytest progress output to 1 update per %.3g second(s)",
-            config.LOG_THROTTLE_SECONDS,
+            runtime_config.log_throttle_seconds,
         )
-        plugins.append(_OutputThrottlePlugin(config.LOG_THROTTLE_SECONDS))
+        plugins.append(_OutputThrottlePlugin(runtime_config.log_throttle_seconds))
     logger.info("Executing pytest with args: %s", pytest_args)
     result = pytest.main(pytest_args, plugins=plugins)
     logger.info("pytest.main() returned %s", result)

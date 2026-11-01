@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from mediascan.artist_yaml_file_validator import validate_artist_yaml_file
-from mediatest.config import LIB_COUNT, LIBS_MEDIA_PATH
+from mediatest.config import get_config
 from mediatest.path_utils import get_path_depth, is_dir_with_subdirs
 
 """
@@ -27,9 +27,10 @@ def get_artist_dir_paths(media_lib_path: Path) -> list[Path]:
 
 
 def pytest_generate_tests(metafunc):  # type: ignore
+    runtime_config = get_config()
     artist_dir_paths: list[Path] = []
-    for lib_idx in range(LIB_COUNT):
-        media_lib_path = Path(LIBS_MEDIA_PATH[lib_idx])
+    for lib_idx in range(runtime_config.lib_count):
+        media_lib_path = Path(runtime_config.libs_media_path[lib_idx])
         artist_dir_paths.extend(get_artist_dir_paths(media_lib_path))
     metafunc.parametrize("artist_path", artist_dir_paths)  # type: ignore
 

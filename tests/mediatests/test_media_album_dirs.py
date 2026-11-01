@@ -3,7 +3,7 @@ from pathlib import Path
 
 from mediascan.utils.path.album_path import AlbumPathBuilder
 
-from mediatest.config import EXTS_MEDIA, EXTS_METADATA, LIB_COUNT, LIBS_MEDIA_PATH
+from mediatest.config import get_config
 from mediatest.path_utils import get_path_depth, is_dir_with_files
 
 """
@@ -29,9 +29,10 @@ def get_album_dir_paths(media_lib_path: Path) -> list[Path]:
 
 
 def pytest_generate_tests(metafunc):  # type: ignore
+    runtime_config = get_config()
     album_dir_paths: list[Path] = []
-    for lib_idx in range(LIB_COUNT):
-        media_lib_path = Path(LIBS_MEDIA_PATH[lib_idx])
+    for lib_idx in range(runtime_config.lib_count):
+        media_lib_path = Path(runtime_config.libs_media_path[lib_idx])
         album_dir_paths.extend(get_album_dir_paths(media_lib_path))
     metafunc.parametrize("album_path", album_dir_paths)  # type: ignore
 
@@ -39,13 +40,13 @@ def pytest_generate_tests(metafunc):  # type: ignore
 def assert_is_dir_with_media_files(path: Path):
     """Asserts that album directory contains at least one media file
     and that directory does not contain subdirectories"""
-    assert is_dir_with_files(path, EXTS_MEDIA)
+    assert is_dir_with_files(path, list(get_config().exts_media))
 
 
 def assert_is_dir_with_metadata_files(path: Path):
     """Asserts that album directory contains at least one metadata (.yml) file
     and that directory does not contain subdirectories"""
-    assert is_dir_with_files(path, EXTS_METADATA)
+    assert is_dir_with_files(path, list(get_config().exts_metadata))
 
 
 def test_album_dir_name(album_path: Path):

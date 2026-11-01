@@ -44,17 +44,24 @@ The main (source) entry point of mediatest invokes pytest to run the tests under
 
 ## Usage
 
-Modify settings in [mediatest-config.yml](./mediatest-config.yml) as needed, then run `mediatest`:
+Place `mediatest-config.yml` and `mediascan-config.yml` in your Moongas collection
+root directory. Run `mediatest` with that directory, or set
+`MOONGAS_COLLECTION_ROOTDIR` to use it as the default:
 
 ```bash
-python -m mediatest mediatest-config.yml
+python -m mediatest /path/to/moongas-collection
 ```
 
 Only test artist.yml:
 
 ```bash
-python -m mediatest -k test_media_artist_dirs mediatest-config.yml
+python -m mediatest /path/to/moongas-collection -k test_media_artist_dirs
 ```
+
+`mediascan-config.yml` supplies `mediaDirs` and `mediaExts`. The
+`mediatest-config.yml` file configures mediatest-specific settings such as
+`minimumFilesize` and `mediascanFilesYamlPath`. Relative paths are resolved
+against the collection root.
 
 ## Help
 
@@ -62,12 +69,13 @@ python -m mediatest -k test_media_artist_dirs mediatest-config.yml
 $ python -m mediatest --help
 usage: python -m mediatest [-h] [--version] [--log-level LEVEL] [--ignore PATH] [-k EXPRESSION] [-m MARKEXPR] [--lf] [--pdb] [-v] [-s]
                            [-x] [--ff] [--maxfail NUM] [--durations NUM] [--durations-min SECONDS]
-                           config_path
+                           [collection_rootdir]
 
-Run mediatest media tests using the provided config YAML file
+Run mediatest media tests for a Moongas collection
 
 positional arguments:
-  config_path           Path to the mediatest config YAML file.
+  collection_rootdir    Moongas collection root directory (default:
+                        $MOONGAS_COLLECTION_ROOTDIR).
 
 options:
   -h, --help            show this help message and exit
@@ -102,7 +110,6 @@ python -m pytest -vv -s --log-cli-level=DEBUG --ignore tests/media
 ## Example Test Failure
 
 ```bash
-tests/test_media_lib_counts.py:97: AssertionError
 ======================================================= short test summary info ========================================================
 FAILED tests/test_media_artist_dirs.py::test_artist_yaml_exists[artist_path2151] - AssertionError: assert False
  +  where False = exists()
@@ -151,10 +158,5 @@ pytest --ignore tests/media
 - etc.
 - Year ID3 tag must be greater than 0 (requires mediascan)
 - Year ID3 tag must be less than current year (requires mediascan)
-- Genre ID3 tag must be in allowed genres (see Genres below)
 
 Of course you can adjust the rules as desired my modifying the Python.
-
-## Genres
-
-This library utilizes the comprehensive [`Genre` enum provided by the Moongas `mediascan` Python package](https://github.com/moongas-org/moongas-mediascan-python/blob/main/src/mediascan/genres.py) with string values corresponding to the expected ID3 tag values. This helps avoid inconsistencies e.g. _"Post-punk"_ vs. _"Post-Punk"_ vs. _"Post punk"_ vs. _"Post Punk"_.
