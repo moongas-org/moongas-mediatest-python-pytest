@@ -71,16 +71,23 @@ python -m mediatest /path/to/moongas-collection -k test_media_artist_dirs
 
 Database-backed metadata tests read `mediascan.db` from the collection root using
 the mediascan package's `get_df_mediafile_track_album_artist_joined` loader and
-`MediaFileDataWithAlbumAndArtistData` row converter. Each item represents a
+`row_to_mediafile_data_with_album_and_artist_data` converter from
+`mediascan.utils.db.mediafile.mediafile_data_with_album_and_artist_data`.
+`mediatest.media_database.load_database_mediafiles(db_path)` returns a list of
+`MediaFileDataWithAlbumAndArtistData`. Each item represents a
 local `mediafile`, enriched with related track, album, and artist data.
 The deprecated `mediascan-files.yml` and `mediascanFilesYamlPath` setting are no
 longer used. Streaming-only tracks are not part of this media-file suite.
 File-size checks use the media files on disk. Missing or invalid databases
 produce errors rather than silently skipping validation.
+Filesystem filename and extension checks run in `tests/mediatests/test_mediafiles.py`
+(select them with `-k test_mediafiles`). Mediafile helpers and test names use
+`mediafile` / `mediafiles` rather than `media_file` / `media_files`.
 
 For track-level consumers, `mediatest.media_database.load_database_tracks(db_path)`
 uses `get_df_track_album_artist_joined` and
-`row_to_track_data_with_album_and_artist_data` to return a list of
+`row_to_track_data_with_album_and_artist_data` from
+`mediascan.utils.db.track.track_data_with_album_and_artist_data` to return a list of
 `TrackDataWithAlbumAndArtistData`, including streaming-only tracks. Like the
 media-file loader, it opens the database read-only and resolves relative track
 paths against the database directory, leaving absolute paths unchanged.

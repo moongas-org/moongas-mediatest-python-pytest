@@ -6,10 +6,10 @@ import sys
 
 import pytest
 from sqlalchemy.exc import NoSuchTableError
-from mediascan.types.media_file.media_file_data_with_album_and_artist_data import MediaFileDataWithAlbumAndArtistData
-from mediascan.types.track.track_data_with_album_and_artist_data import TrackDataWithAlbumAndArtistData
+from mediascan.utils.db.mediafile.mediafile_data_with_album_and_artist_data import MediaFileDataWithAlbumAndArtistData
+from mediascan.utils.db.track.track_data_with_album_and_artist_data import TrackDataWithAlbumAndArtistData
 
-from mediatest.media_database import load_database_media_files, load_database_tracks
+from mediatest.media_database import load_database_mediafiles, load_database_tracks
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def database(tmp_path: Path) -> Path:
 
 
 def test_load_mediafiles_with_joined_data(database: Path) -> None:
-    files = load_database_media_files(database)
+    files = load_database_mediafiles(database)
     assert isinstance(files, list)
     assert len(files) == 2
     assert all(isinstance(file, MediaFileDataWithAlbumAndArtistData) for file in files)
@@ -76,7 +76,7 @@ def test_absolute_media_path_is_preserved(database: Path) -> None:
     absolute_path = str(database.parent / "Other/Song.mp3")
     with sqlite3.connect(database) as connection:
         connection.execute("UPDATE mediafile SET path = ? WHERE id = 99", (absolute_path,))
-    assert absolute_path in {file.path for file in load_database_media_files(database)}
+    assert absolute_path in {file.path for file in load_database_mediafiles(database)}
 
 
 def test_load_tracks_with_joined_data(database: Path) -> None:
@@ -139,7 +139,7 @@ def test_unlinked_track_is_included(database: Path, reference: int | None) -> No
 @pytest.mark.parametrize("tracks", [False, True])
 def test_missing_database_is_not_created(tmp_path: Path, tracks: bool) -> None:
     database = tmp_path / "mediascan.db"
-    loader = load_database_tracks if tracks else load_database_media_files
+    loader = load_database_tracks if tracks else load_database_mediafiles
     with pytest.raises(FileNotFoundError, match="Mediascan database not found"):
         loader(database)
     assert not database.exists()
@@ -149,7 +149,7 @@ def test_missing_database_is_not_created(tmp_path: Path, tracks: bool) -> None:
 def test_missing_database_table_raises(database: Path, table: str) -> None:
     with sqlite3.connect(database) as connection:
         connection.execute(f"DROP TABLE {table}")
-    loader = load_database_tracks if table == "track" else load_database_media_files
+    loader = load_database_tracks if table == "track" else load_database_mediafiles
     with pytest.raises(NoSuchTableError, match=table):
         loader(database)
 
@@ -157,7 +157,7 @@ def test_missing_database_table_raises(database: Path, table: str) -> None:
 def test_broken_track_reference_preserves_mediafile(database: Path) -> None:
     with sqlite3.connect(database) as connection:
         connection.execute("UPDATE mediafile SET trackid = 999 WHERE id = 99")
-    files = load_database_media_files(database)
+    files = load_database_mediafiles(database)
     file = next(file for file in files if file.id == 99)
     assert file.title == "Song"
     assert file.album_path is None
@@ -167,7 +167,7 @@ def test_broken_track_reference_preserves_mediafile(database: Path) -> None:
 def test_unlinked_mediafile_is_included(database: Path) -> None:
     with sqlite3.connect(database) as connection:
         connection.execute("UPDATE mediafile SET trackid = NULL WHERE id = 99")
-    files = load_database_media_files(database)
+    files = load_database_mediafiles(database)
     assert {file.id for file in files} == {99, 3}
     file = next(file for file in files if file.id == 99)
     assert file.artist == "Artist"

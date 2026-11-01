@@ -2,11 +2,11 @@ import logging
 from pathlib import Path
 import sqlite3
 
-from mediascan.types.media_file.media_file_data_with_album_and_artist_data import (
+from mediascan.utils.db.mediafile.mediafile_data_with_album_and_artist_data import (
     MediaFileDataWithAlbumAndArtistData,
-    row_to_media_file_data_with_album_and_artist_data,
+    row_to_mediafile_data_with_album_and_artist_data,
 )
-from mediascan.types.track.track_data_with_album_and_artist_data import (
+from mediascan.utils.db.track.track_data_with_album_and_artist_data import (
     TrackDataWithAlbumAndArtistData,
     row_to_track_data_with_album_and_artist_data,
 )
@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 logger = logging.getLogger(__name__)
 
 
-def load_database_media_files(db_path: Path) -> list[MediaFileDataWithAlbumAndArtistData]:
+def load_database_mediafiles(db_path: Path) -> list[MediaFileDataWithAlbumAndArtistData]:
     db_path = db_path.expanduser().resolve()
     if not db_path.is_file():
         raise FileNotFoundError(f"Mediascan database not found: {db_path}")
@@ -32,7 +32,7 @@ def load_database_media_files(db_path: Path) -> list[MediaFileDataWithAlbumAndAr
     try:
         mediafiles = get_df_mediafile_track_album_artist_joined(engine)
         result = [
-            row_to_media_file_data_with_album_and_artist_data(row)
+            row_to_mediafile_data_with_album_and_artist_data(row)
             for _, row in mediafiles.iterrows()
         ]
         for mediafile in result:

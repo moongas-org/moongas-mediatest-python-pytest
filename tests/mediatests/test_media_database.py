@@ -2,17 +2,17 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from mediascan.types.media_file.media_file_data_with_album_and_artist_data import MediaFileDataWithAlbumAndArtistData
+from mediascan.utils.db.mediafile.mediafile_data_with_album_and_artist_data import MediaFileDataWithAlbumAndArtistData
 
 from mediatest.config import PRESENT_YEAR, get_config
-from mediatest.media_database import load_database_media_files
+from mediatest.media_database import load_database_mediafiles
 
 _FILES_KEY = pytest.StashKey[list[MediaFileDataWithAlbumAndArtistData]]()
 
 
-def database_media_files(config: pytest.Config) -> list[MediaFileDataWithAlbumAndArtistData]:
+def database_mediafiles(config: pytest.Config) -> list[MediaFileDataWithAlbumAndArtistData]:
     if _FILES_KEY not in config.stash:
-        config.stash[_FILES_KEY] = load_database_media_files(Path(get_config().mediascan_db_path))
+        config.stash[_FILES_KEY] = load_database_mediafiles(Path(get_config().mediascan_db_path))
     return config.stash[_FILES_KEY]
 
 
@@ -21,7 +21,7 @@ NO_ERRORS = "(no errors)"
 
 @pytest.fixture(scope="session")
 def files(pytestconfig: pytest.Config) -> list[MediaFileDataWithAlbumAndArtistData]:
-    return database_media_files(pytestconfig)
+    return database_mediafiles(pytestconfig)
 
 
 def run_tests(files: list[MediaFileDataWithAlbumAndArtistData]) -> list[str]:
@@ -42,10 +42,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     otherwise the test would just be greyed out)
     """
     if "file" in metafunc.fixturenames:
-        mediafiles = database_media_files(metafunc.config)
+        mediafiles = database_mediafiles(metafunc.config)
         metafunc.parametrize("file", mediafiles, ids=[str(file.id) for file in mediafiles])
     if "error" in metafunc.fixturenames:
-        errors = run_tests(database_media_files(metafunc.config))
+        errors = run_tests(database_mediafiles(metafunc.config))
         if len(errors) == 0:
             errors.append(NO_ERRORS)
         metafunc.parametrize("error", errors)

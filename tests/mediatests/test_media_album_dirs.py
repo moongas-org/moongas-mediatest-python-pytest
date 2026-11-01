@@ -37,7 +37,7 @@ def pytest_generate_tests(metafunc):  # type: ignore
     metafunc.parametrize("album_path", album_dir_paths)  # type: ignore
 
 
-def assert_is_dir_with_media_files(path: Path):
+def assert_is_dir_with_mediafiles(path: Path):
     """Asserts that album directory contains at least one media file
     and that directory does not contain subdirectories"""
     assert is_dir_with_files(path, list(get_config().exts_media))
@@ -57,9 +57,9 @@ def test_album_dir_name(album_path: Path):
     assert album_path_obj.valid
 
 
-def test_album_dir_contains_media_files(album_path: Path):
+def test_album_dir_contains_mediafiles(album_path: Path):
     """Verifies that album directory contains media files"""
-    assert_is_dir_with_media_files(album_path)
+    assert_is_dir_with_mediafiles(album_path)
 
 
 def test_album_dir_contains_metadata_files(album_path: Path):

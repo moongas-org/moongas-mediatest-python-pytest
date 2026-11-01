@@ -22,7 +22,7 @@ These tests validate media files by scanning the lib directories on the filesyst
 FILENAME_PROHIBITED_CHARS = "’？?"
 
 
-def get_media_file_paths(media_lib_path: Path) -> list[Path]:
+def get_mediafile_paths(media_lib_path: Path) -> list[Path]:
     ret: set[Path] = set()
     for root, _, files in os.walk(media_lib_path, topdown=False):
         for name in files:
@@ -33,20 +33,20 @@ def get_media_file_paths(media_lib_path: Path) -> list[Path]:
 
 def pytest_generate_tests(metafunc):  # type: ignore
     runtime_config = get_config()
-    media_file_paths: list[Path] = []
+    mediafile_paths: list[Path] = []
     for lib_idx in range(runtime_config.lib_count):
         media_lib_path = Path(runtime_config.libs_media_path[lib_idx])
-        media_file_paths.extend(get_media_file_paths(media_lib_path))
-    metafunc.parametrize("media_file_path", media_file_paths)  # type: ignore
+        mediafile_paths.extend(get_mediafile_paths(media_lib_path))
+    metafunc.parametrize("mediafile_path", mediafile_paths)  # type: ignore
 
 
-def test_media_file_filename(media_file_path: Path):
+def test_mediafile_filename(mediafile_path: Path):
     """Verifies that media file filename doesn't break any naming rules"""
     for c in FILENAME_PROHIBITED_CHARS:
-        assert c not in media_file_path.name
+        assert c not in mediafile_path.name
 
 
-def test_media_file_file_ext(media_file_path: Path):
+def test_mediafile_file_ext(mediafile_path: Path):
     """Verifies that media file file extension is in allowed_exts list"""
-    ext = get_file_ext(media_file_path)
+    ext = get_file_ext(mediafile_path)
     assert ext in get_config().allowed_exts, f"'{ext}' not in allowed extensions"
